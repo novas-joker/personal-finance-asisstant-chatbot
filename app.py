@@ -11,7 +11,17 @@ app = Flask(__name__, template_folder='app/templates', static_folder='app/static
 
 # Configure Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-pro')
+
+# Use the latest generative model
+# gemini-1.5-pro is the latest model for balanced performance and cost
+# If this doesn't work, we can fall back to gemini-1.0-pro or gemini-pro
+try:
+    model = genai.GenerativeModel('gemini-1.5-pro')
+except Exception:
+    try:
+        model = genai.GenerativeModel('gemini-1.0-pro')
+    except Exception:
+        model = genai.GenerativeModel('gemini-pro')
 
 @app.route('/')
 def index():
@@ -37,7 +47,16 @@ def chat():
     try:
         # Generate response using Gemini
         response = model.generate_content(prompt)
-        return jsonify({"response": response.text})
+        
+        # Handle different response formats based on the API version
+        if hasattr(response, 'text'):
+            response_text = response.text
+        elif hasattr(response, 'parts'):
+            response_text = ''.join(part.text for part in response.parts)
+        else:
+            response_text = str(response)
+            
+        return jsonify({"response": response_text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
